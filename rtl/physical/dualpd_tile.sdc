@@ -1,0 +1,6 @@
+create_clock -name clk -period 40.000 [get_ports clk]
+set_clock_uncertainty 0.200 [get_clocks clk]
+set_input_delay 1.000 -clock clk [get_ports {rst_n in_valid in_l[*] in_r[*]}]
+set_output_delay 1.000 -clock clk [get_ports {in_ready out_valid phase_q4_4[*] confidence_u8[*] low_texture}]
+set_input_transition 0.100 [get_ports {rst_n in_valid in_l[*] in_r[*]}]
+set_load 0.010 [get_ports {in_ready out_valid phase_q4_4[*] confidence_u8[*] low_texture}]

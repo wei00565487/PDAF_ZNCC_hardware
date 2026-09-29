@@ -1,0 +1,6 @@
+create_clock -name core_clock -period 5.556 [get_ports clk]
+set_clock_uncertainty 0.15 [get_clocks core_clock]
+set_input_delay 0.40 -clock core_clock [get_ports {rd_en* rd_addr* wr_en* wr_addr* wr_data*}]
+set_output_delay 0.40 -clock core_clock [get_ports {rd_valid* rd_data*}]
+set_input_transition 0.10 [all_inputs]
+set_load 0.010 [all_outputs]

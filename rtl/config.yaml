@@ -1,0 +1,8 @@
+DESIGN_NAME: dual_pd_zncc_tile
+VERILOG_FILES: dir::dual_pd_zncc_tile.sv
+CLOCK_PORT: clk
+CLOCK_PERIOD: 10.0
+FP_CORE_UTIL: 35
+
+pdk::sky130A:
+  CLOCK_PERIOD: 10.0

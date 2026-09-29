@@ -1,0 +1,7 @@
+########## resolution 45  cfa-grid 0.15  tag grid_r45  17:01:32
+    prte-rmaps-base:alloc-error
+########## resolution 60  cfa-grid 0.15  tag grid_r60  17:01:32
+    prte-rmaps-base:alloc-error
+########## resolution 60  cfa-grid 0.0  tag nogrid_r60  17:01:33
+    prte-rmaps-base:alloc-error
+########## ALL DONE 17:01:33

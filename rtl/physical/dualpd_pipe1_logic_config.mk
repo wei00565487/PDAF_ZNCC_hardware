@@ -1,0 +1,11 @@
+export DESIGN_NAME = dual_pd_zncc_pipe1_logic_top
+export PLATFORM = nangate45
+export DESIGN_DIR = /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical
+export VERILOG_FILES = $(DESIGN_DIR)/../dual_pd_zncc_pipe1_logic_top.sv $(DESIGN_DIR)/../dual_pd_zncc_stream_stats_4phase_pipe1_phys.sv $(DESIGN_DIR)/../dual_pd_zncc_candidate_onephase.sv $(DESIGN_DIR)/../dual_pd_zncc_stats_update_onephase_single.sv $(DESIGN_DIR)/../dual_pd_zncc_stats_4phase_logic_farm.sv
+export VERILOG_DEFINES = -DSYNTHESIS
+export SDC_FILE = $(DESIGN_DIR)/dualpd_pipe1_logic.sdc
+export CLOCK_PERIOD = 5.556
+export CORE_UTILIZATION = 35
+export PLACE_DENSITY = 0.30
+export ABC_AREA = 1
+export SYNTH_REPEATABLE_BUILD = 1

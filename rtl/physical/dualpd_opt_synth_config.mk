@@ -1,0 +1,14 @@
+export DESIGN_NAME = dual_pd_zncc_opt_synth_top
+export PLATFORM = nangate45
+export DESIGN_DIR = /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical
+export VERILOG_FILES = $(DESIGN_DIR)/../dual_pd_zncc_opt_synth_top.sv $(DESIGN_DIR)/../dual_pd_zncc_stream_stats_4phase_opt.sv $(DESIGN_DIR)/../dual_pd_zncc_candidate_group4.sv $(DESIGN_DIR)/../dual_pd_zncc_stats_update4.sv $(DESIGN_DIR)/../dual_pd_zncc_stats_4phase_macro.sv
+export VERILOG_DEFINES = -DFREEPDK45_4PHASE_SRAM_MACRO -DSYNTHESIS
+export SDC_FILE = $(DESIGN_DIR)/dualpd_opt_synth.sdc
+export CLOCK_PERIOD = 5.556
+export CORE_UTILIZATION = 35
+export PLACE_DENSITY = 0.30
+export ABC_AREA = 1
+export SYNTH_REPEATABLE_BUILD = 1
+export ADDITIONAL_LEFS = $(DESIGN_DIR)/work_freepdk45/zncc_stats_32x192_1rw1r_freepdk45.lef $(DESIGN_DIR)/work_freepdk45/zncc_stats_32x104_1rw1r_freepdk45.lef
+export ADDITIONAL_LIBS = $(DESIGN_DIR)/work_freepdk45/zncc_stats_32x192_1rw1r_freepdk45_TT_1p0V_25C.lib $(DESIGN_DIR)/work_freepdk45/zncc_stats_32x104_1rw1r_freepdk45_TT_1p0V_25C.lib
+export ADDITIONAL_GDS = $(DESIGN_DIR)/work_freepdk45/zncc_stats_32x192_1rw1r_freepdk45.gds $(DESIGN_DIR)/work_freepdk45/zncc_stats_32x104_1rw1r_freepdk45.gds

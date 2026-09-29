@@ -1,0 +1,6 @@
+create_clock -name core_clock -period 5.556 [get_ports clk]
+set_clock_uncertainty 0.15 [get_clocks core_clock]
+set_input_delay 0.40 -clock core_clock [get_ports {in_valid in_l* in_r* rd_bank rd_tile* rd_disp* release_bank*}]
+set_output_delay 0.40 -clock core_clock [get_ports {band_done* rd_valid rd_sum_* rd_count* ready_bank* overrun}]
+set_input_transition 0.10 [all_inputs]
+set_load 0.010 [all_outputs]

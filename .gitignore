@@ -1,0 +1,49 @@
+# Python/cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Simulation and generated analysis output
+out/
+sim/work/
+sim/results/
+rtl/runs/
+bxsim/*.png
+bxsim/*.npy
+meep/output/
+
+# OpenROAD/Yosys generated databases and logs
+**/results/
+**/logs/
+**/reports/
+**/objects/
+**/work/
+**/work40/
+**/work180/
+**/work_freepdk45/
+**/work_freepdk45_grid/
+**/work_nangate45_routeable/
+!rtl/physical/work_nangate45_routeable/
+!rtl/physical/work_nangate45_routeable/*.lef
+**/*.odb
+**/*.spef
+**/*.def
+**/*.vcd
+**/*.fst
+
+# Large/generated SRAM views and simulations
+**/*.gds
+**/*.sp
+**/*.lvs.sp
+**/*.html
+**/*.png
+
+# Vendor OpenROAD-flow-scripts clone; use the documented ORFS container/setup.
+rtl/physical/openroad-flow-scripts/
+
+# Local/editor files
+.venv/
+.mypy_cache/
+.idea/
+.vscode/
+*.swp

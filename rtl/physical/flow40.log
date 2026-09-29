@@ -1,0 +1,11 @@
+cp /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/dualpd_tile.sdc /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/work40/results/nangate45/dual_pd_zncc_tile/base/1_2_yosys.sdc
+touch -r /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/dualpd_tile.sdc /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/work40/results/nangate45/dual_pd_zncc_tile/base/1_2_yosys.sdc
+cp /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/openroad-flow-scripts/flow/platforms/nangate45/lef/NangateOpenCellLibrary.tech.lef /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/work40/objects/nangate45/dual_pd_zncc_tile/base/klayout_tech.lef
+/usr/bin/python3 /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/openroad-flow-scripts/flow/util/generate_klayout_tech.py \
+	--template /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/openroad-flow-scripts/flow/platforms/nangate45/FreePDK45.lyt \
+	--output /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/work40/objects/nangate45/dual_pd_zncc_tile/base/klayout.lyt \
+	--lef-files /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/work40/objects/nangate45/dual_pd_zncc_tile/base/klayout_tech.lef /mnt/c/Users/fireg/code/sensor-analysis/bayer-crosstalk-sim/rtl/physical/openroad-flow-scripts/flow/platforms/nangate45/lef/NangateOpenCellLibrary.macro.mod.lef   \
+	--map-files 
+Error: KLayout not found. Install KLayout or set KLAYOUT_CMD.
+Hint: KLayout is needed for GDS/DRC/LVS targets.
+make: *** [flow/Makefile:726: check-klayout] Error 1
