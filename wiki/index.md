@@ -46,6 +46,7 @@ Bayer 配列 CMOS イメージセンサの**混色（クロストーク）**を�
 | [60-roadmap](60-roadmap.md) | 未検証事項・次にやること |
 | [70-assumptions](70-assumptions.md) | **仮定値の一覧と感度**。数値を引用する前に必読 |
 | [80-dual-pd-zncc-hardware](80-dual-pd-zncc-hardware.md) | Dual-PD位相差検出のZNCC参照モデルとラインメモリ／演算器設計 |
+| [dual_pd_zncc_opt_synthesis_report](dual_pd_zncc_opt_synthesis_report.md) | ZNCC RTLの合成・配置配線・SRAM proxy評価の履歴 |
 | [90-glossary](90-glossary.md) | 用語集 |
 
 ## この wiki の使い方

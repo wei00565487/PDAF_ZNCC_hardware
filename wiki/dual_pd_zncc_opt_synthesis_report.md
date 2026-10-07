@@ -1,5 +1,39 @@
 # Dual-PD ZNCC 4候補スロット構成の合成結果
 
+## RGGB疑似輝度ZNCCの実装検討（2026-09-30）
+
+性能評価wikiの方式に合わせ、4相独立統計から2×2 RGGBセルのR+G+G+B和を使う単一統計面へ移行する設計案を仕様書へ記録した（[固定幅・SRAM・ラインバッファ仕様](81-dual-pd-zncc-rtl-spec.md#10-疑似輝度znccへの移行案ユーザー指定の評価方式)）。12-bit RAW、125×125 raw-pixel area、cell-center割当ての仮定では統計wordは673 bitから185 bit（epoch含む）へ縮小し、統計SRAMの論理bitは約72.5%減る見積もり。ラインメモリと疑似セルFIFO込みの論理bitは約35.9%減だが、既存32×192 proxy macroをそのまま1000深さにbank化すると端数幅で合計497,664 physical bitとなり、現行369,920 bitより増える。狭幅・深深度SRAM IPまたはメモリ構成の再設計が重要。
+
+前処理RTL `dual_pd_zncc_pseudoluma_pair4` と同期1RW SRAM adapter `dual_pd_zncc_pseudoluma_linebuf4` を追加。Icarus Verilogで行メモリread/write遅延、2×2セル和、偶数行での出力抑止、mask処理、および125画素area境界の水平/垂直cell-center割当てをPASS確認した。Yosys 0.68でadapter+前処理のflatten synthesisも完了（0 structural problem、1,218 generic cells）。この値はadapterと前処理だけで、行SRAM macroの面積を含まない。まだ疑似輝度統計器/スコアラ/SRAMファームへの接続、固定小数点ZNCCの参照モデル、フルフレーム境界・タイル統計検証、新全体構成のP&Rは未実施。数値評価は64×64 areaであり、125画素境界を含む実データ再評価も必要。
+
+### pooled moment/scorer/SRAM単体RTL（2026-09-30）
+
+- `dual_pd_zncc_pooled_moment_accum`: 184-bit moment recordのload/accumulateをIcarusでPASS。最大想定3,969 cellをfull-scale入力してsum/count全fieldのoverflowなしも確認。Yosys 0.68 flatten synthesis: 4,061 generic cells、check 0 errors。
+- `dual_pd_zncc_stats_pooled_macro_farm`: 17×32 bankを186-bit proxy wrapperに接続。185 logical bits（184 moment+epoch）をpadしてreadback/isolation test PASS。
+- `dual_pd_zncc_scorer_pooled`: 17候補を逐次平方根・除算する単一面scorer。既知統計値でQ1.15 peak、Q4.4=+0.5 px補間、8-bit quality=199を確認。Yosys coarse synthesis/RTLIL/checkはPASS（738 cells、13 `$mul`、3 `$div`）。flattened generic `synth`は2分超で完了せず停止し、mapped area/STAは未取得。
+- 以上5つの新規単体testbench（pair4, linebuf4, pooled accumulator, pooled scorer, pooled SRAM farm）は全てPASS。まだこれらのblock間配線、±8-cell candidate window、500×60-bit順序保持pair FIFO、tile-row SRAM read/accumulate/write schedulerは未実装。従って統合機能・フレームレート・面積・電力の合格を意味しない。
+
+## 逐次コアの行内2相更新軽量化（2026-09-30）
+
+`dual_pd_zncc_stream_stats_4phase_pipe1_phys.sv` の逐次スケジューラを変更し、1行の処理ではBayer相のうち当該行に対応する2相だけを更新する。行末で`y_parity`を反転し、統計語内の位相番号を次行の相ペアへ進める。17候補は維持し、各位相の統計フィールドと有効ペアcountもそのまま保持する。
+
+countをSRAMから省く案は採用しなかった。有効マスクと視差オーバーラップ境界により有効ペア数が変化し、countはZNCC正規化に必要な統計値だからである。統計語幅は673 bitのままなので、17 bank×32 wordの論理容量366,112 bit（約357.5 Kibit）とSRAM本体面積は変わらない。
+
+変更後の逐次スケジュールは1入力ビートあたり17×2=34回の候補相更新となり、旧17×4=68回から半減する。Yosys 0.68で`hierarchy -check`、`proc`、`check -assert`を実行し、0 structural problemsを確認した。続けてgeneric `synth -flatten`も完了した。これは機能等価性・Nangate45 mapped area・PPAの検証ではない。サイクル精度シミュレーションと活動率ベースの電力測定は未実施である。
+
+このトップは1ビートの処理に34クロックを使うため、60 fpsの4 pixel/beat連続入力を受け切るラインレート設計ではない。`in_valid`がbusy中に来ても保持するready/FIFOがない。この変更は逐次プロトタイプの相更新を半分にしたものであり、連続入力要件を満たした結果とは扱わない。実センサ帯域へ適用するには、複数候補更新レーンまたは行FIFOを含めて再スケジュールする必要がある。
+
+### 行内2相版の機能検証・物理実装状況（2026-09-30）
+
+- Icarus Verilogの`tb_dual_pd_zncc_pipe1_two_phase`で、偶数行相0/1・奇数行相2/3の更新を確認（PASS、even=20 / odd=20）。検証幅は`FRAME_W=TILE_W=4`の小規模ケースであり、全画面・マスク境界を覆うものではない。
+- Yosys 0.68で`hierarchy -check; proc; check -assert; stat`を実行し、構造問題0件。続けてgeneric `synth -flatten`も完了。これはNangate45マッピング面積や機能同値の証明ではない。
+- ORFS / Nangate45標準セル + FreePDK45生成SRAMのLEF/Liberty proxyで、synthesis、floorplan、配置、CTS、global routeまで到達。CTS後設計面積は4,240,157 µm²（約4.240 mm²、マクロを含むproxy合計）。配置修復で多数のbufferを挿入しているため、実プロセスの面積予測には使えない。
+- 目標周期5.556 ns（180 MHz）に対し、GRTで更新されたclock period 6.352 ns、slack -1.130 ns、endpoint paths 25,544。setupは未達。global routeはcongestion警告付きで、route guideは生成された。
+- 詳細配線は保存済みGRT checkpointから実行したが、反復修復後も違反が残ったため停止。第1反復終了時113,904、第2反復終了時13,595、第3反復終了時3,421、第4反復終了時1,296、第5反復終了時944、第6反復終了時823、第7反復開始時点でも違反があり、停止時のclean判定は得ていない。したがって詳細配線完了・DRC clean・最終配線後タイミングは未取得。
+- この物理トップは統計更新プロトタイプであり、ZNCC scorer、タイル完成制御、位相差/信頼度の画素サブピクセル出力を統合していない。電力もSAIF/VCD活動率を用いた評価は行っていない。
+
+上記数値は技術的に混在するproxy評価であり、foundry 45 nm製品の面積・電力・タイミングを示すものではない。DRTのshort/spacing違反は、まずLEF/tech LEF/RC定義とSRAM proxy pin/obstruction、電源・信号レイヤー設定の整合性を検証して解消する必要がある。
+
 ## 対象
 
 `dual_pd_zncc_opt_core_synth_top` は、17候補を4候補スロット×5グループに分け、4位相の統計を位相単位に分離し、候補生成・統計更新・SRAMファームを別モジュールにした合成検証用トップである。SRAMファームはブラックボックスとして扱い、SRAMビヘイビアモデルの論理展開がコア評価を汚染しないようにしている。
@@ -155,3 +189,86 @@ stdCellPinNoAp      = 0
 30%利用率条件ではglobal routeの最終混雑が、従来の総congestion 231から139へ低下した。allow-congestion条件ではroute guideと`5_1_grt-failed.odb`が生成され、総wirelengthは`18,726,104 um`であった。ただし、残存congestionがあるためOpenROADはglobal routeを成功扱いにせず、続くpost-route `repair_design`もproxy macroの過大な容量モデルにより長時間化したため停止した。従ってdetail route、fill、route後STAは未完了である。
 
 この結果から、ファウンドリー情報なしで評価可能な範囲は、RTLIL、合成、macro配置、CTS、pin access、global route混雑比較までとする。detail route以降を完了させるには、SRAM Libertyのpin capacitanceを実macro相当へ校正するか、proxy専用に遅延・容量を抑えたLibertyを別途用意する必要がある。
+
+## RGGB pooled ZNCC・2セル/clock演算コア PPA（2026-09-30、逐次化後）
+
+4相ごとに相関を計算せず、各RGGB 2×2 cellの4画素和を1 pseudo-luma値とし、隣接2 cell/clockで17候補の統計を並列更新する構成を追加した。`dual_pd_zncc_pooled_moments17x2`は2レーン×17候補の184-bit統計器、`dual_pd_zncc_scorer_pooled`は候補を逐次正規化しQ4.4位相/Q8信頼度を出す共有scorerである。候補別の2レーン統計はタイル後にfield-by-fieldで合算する。
+
+### サイクル分割と検証結果
+
+180 MHz制約での前回配置後STAの最長経路がscorerのREPORT状態へ集中していたため、後段演算を次のように逐次化した。17候補の最大値走査と第2ピーク走査を1候補/clockで別ステートにし、サブピクセル補間除算をrestoring dividerで反復実行する。confidenceの乗算は段階化し、Q8変換も逐次除算にした。各候補の平方根・ZNCC除算も元の反復実行を維持する。これにより、1周期に全候補の比較・選択・除算を組み合わせる経路をなくし、1タイルの結果レイテンシを増やしてクロック周期を短縮した。1タイル/フレームの出力頻度仕様には影響しない構成だが、RTL topより上流の連続4画素/beat入力からタイル完了までを含むシステム帯域検証ではない。
+
+- 変更後scorerの既知ベクトルテスト: PASS（phase Q4.4=8、peak Q1.15=32767、second=0、confidence=199）。
+- Icarusの7テスト（pseudo-luma pair、line buffer、moment accumulator、17候補window、2-cell/clock統計合算、pooled scorer、pooled SRAM farm）すべてPASS。
+- Yosys 0.68 RTLIL生成、階層展開、`proc; check -assert` PASS。Nangate45標準セルtechnology mapping PASS。
+- OpenROAD Flow Scripts / Nangate45、5.556 ns（180 MHz）制約でfloorplan、global/detailed placement、CTS、global/detailed route、OpenRCX抽出、final reportまで完了。
+- Detailed-route DRCは最終0件（途中21,024件から修復）、antenna違反0件。SRAM macroなしの演算コアであり、LVS/製造signoffではない。
+
+### 演算コア実測値
+
+| 指標 | 結果 |
+|---|---:|
+| Yosys mapped standard-cell area | 282,742.040 µm² = 0.283 mm² |
+| 最終 standard-cell area（fill除外） | 286,420 µm² = 0.286 mm² |
+| CTS後 area | 286,420 µm² |
+| コア面積 | 806,322.9 µm²、最終利用率 約35.5% |
+| clock minimum period / Fmax | 5.25 ns / 190.30 MHz |
+| 5.556 ns制約での最終WNS/TNS | 0.00 ns / 0.00 ns（違反なし） |
+| final critical-path slack / max data arrival | +0.301 ns / 5.68 ns |
+| detailed-route DRC / antenna | 0 / 0 |
+| OpenROAD vectorless power | 3.01 W（internal 1.58 W、switching 1.42 W、leakage 0.00564 W） |
+
+180 MHz制約はNangate45 proxy上の最終配線後STAで達成した（190.30 MHz、約5.3%の周波数余裕）。新しい最長経路は`u_scorer.score_idx[0]`から`u_scorer.den2_reg[110]`へ向かう統計正規化準備段で、補間/peak選択経路ではなくなった。余裕は約0.30 nsと小さいため、異なるRC corner、OCV、電圧・温度条件、実SRAM接続、clock uncertaintyを含めた量産条件での達成を意味しない。
+
+電力は入力toggle注釈/VCDなしのOpenROAD vectorless値であり、センサ画像のデータ依存活動率を反映しない。出力された3.01 WとIR解析の最大電圧降下約35%はこの仮定とproxy電源網に強く依存し、電力比較やIR signoffには使用できない。実入力のSAIF/VCD、適切な電源網・デカップリング、プロセスコーナーおよび電圧/温度条件を設定して再評価すること。
+
+### メモリを含む面積の暫定加算
+
+今回のP&R topは演算コア評価用であり、line SRAM、17-bank統計SRAM、候補window/front-endはtopに接続していない。既存routeable LEFの面積から単純加算すると:
+
+| メモリ | マクロ構成 | ビット容量（physical） | 面積 proxy |
+|---|---:|---:|---:|
+| pooled tile stats | 17 × 32×192 | 104,448 bit | 1.184 mm² |
+| 1-line L/R + mask | 32 × 32×104（深さ余り24語） | 106,496 bit | 1.079 mm² |
+| 演算コア | Nangate45 final std cells | — | 0.286 mm² |
+| 小計 | — | — | 約2.549 mm² |
+
+ラインバッファは論理104,000 bit（1000×104）、統計は論理100,640 bit（17×32×185）だが、上表はマクロのword幅/深さ切上げを含める。SRAM macro LEF/Liberty/GDSはFreePDK45ベースproxyであり、Nangate45演算セルと混在させた2.549 mm²は見積り用の混成比較で、同一processの実装面積・signoff値ではない。candidate windowとtile制御、clock/power配線の増分も未計上。従って現時点の「全体面積」は確定せず、2.549 mm²は既知ブロックだけの下限寄り積算である。1-cell/cycle方式を使う場合はさらに約500×60 bit FIFOが必要となり、32×104 proxy macro 16個を仮定した追加面積は約0.540 mm²。現在のPPA topはFIFOを避ける2-cell/clock入力を前提とする。
+
+PPA生成物（OpenROAD 2026-09-30実行）:
+
+- `rtl/physical/pooled_compute_ppa/synth_stat.txt`
+- `rtl/physical/pooled_compute_ppa/6_finish.rpt`
+- `rtl/physical/pooled_compute_ppa/6_report.log`
+- `rtl/physical/pooled_compute_ppa/5_2_route.log`
+- `rtl/physical/pooled_compute_ppa/6_final.odb`（最終OpenDB、約261 MB / 249 MiB）
+
+## pooled統計SRAM＋共有スコアラ RTL-to-GDS（2026-10-07）
+
+32-zone列のpooled統計を17個のSRAM bankに保持し、旧zone行を読み出して共有逐次スコアラへ渡すバックエンドを、Nangate45標準セル＋FreePDK45由来OpenRAMマクロの研究用混成proxyでRTL-to-GDS評価した。各zoneアドレスは17 bankすべての旧データをSRAM read portがサンプルした後に再利用可能となる。これにより次zone行の書込みと前zone行のスコア処理を重ね、統計用SRAMを二重化せず17マクロに抑える。
+
+### 容量と面積
+
+| 項目 | 結果 |
+|---|---:|
+| SRAM構成 | 17個 × 32×192 bit、各1RW1R |
+| 論理容量 | 17×32×185 = 100,640 bit（184-bit record＋epoch/padding） |
+| マクロ物理容量 | 104,448 bit（12.75 KiB、wordあたり7 bit未使用） |
+| SRAMマクロ面積 | 1,183,671.68 µm²（1.184 mm²） |
+| 最終標準セル面積 | 136,374 µm²（0.136 mm²） |
+| 合計インスタンス面積 | 1,320,046 µm²（1.320 mm²、SRAM比率約89.7%） |
+| コア面積 | 3,653,774.67 µm²（3.654 mm²、目標利用率35%） |
+
+### タイミング・配線・検証
+
+- Yosys synthesisからOpenROAD floorplan、placement、CTS、global/detailed route、OpenRCX SPEF抽出とGDS mergeまで完了。KLayoutでLEF/GDS cell対応とorphan cellなしを確認。
+- 抽出後setup slack +0.1958 ns、hold slack +0.0835 ns、setup/hold TNS 0。最小周期5.36 ns、Fmax 186.56 MHzで、180 MHz制約をproxy上で満たした。
+- 詳細配線後もDRC違反170件が残り、すべてOpenRAM macro上/内部のmetal4 short。したがってGDSはDRC cleanではない。
+- PDN/IR解析は未完了。Nangate45側の電源網でOpenRAMの小文字`vdd`端子・電源形状が未接続扱いとなったため、最終STAはIR解析をスキップして実行。
+- OpenROAD vectorless powerは入力活動率・実センサ波形なし、巨大なトップI/O境界のため、60 fpsセンサ電力として無効。数値を電力見積もりに使わない。
+
+### 適用範囲と制限
+
+物理トップは「完成済みzoneの17×184-bit統計値」を受け取るSRAM/score backendであり、RAW L/R入力からのラインバッファ、疑似輝度生成、候補窓、moment accumulatorは未接続である。従ってこの面積・タイミングはセンサから位相差/信頼度出力までの全体RTL結果ではない。また、Nangate45標準セルとFreePDK45 SRAMは同一foundry/process kitではなく、研究用の混成proxyであり、45 nm製品のsignoff値ではない。
+
+実行条件、モジュール構成、生成物パスを含む詳細は[RTL-to-GDSレポート](../rtl/physical/pooled_sram_score_rtl2gds_report.md)を参照。代表生成物は、[物理トップ](../rtl/dual_pd_zncc_pooled_sram_score_top.sv)、[最終GDS](../rtl/physical/pooled_openram_rtl2gds/results/nangate45/dual_pd_zncc_pooled_sram_score_top/base/6_final.gds)、[最終STAレポート](../rtl/physical/pooled_openram_rtl2gds/reports/nangate45/dual_pd_zncc_pooled_sram_score_top/base/6_finish.rpt)、[DRCレポート](../rtl/physical/pooled_openram_rtl2gds/reports/nangate45/dual_pd_zncc_pooled_sram_score_top/base/5_route_drc.rpt)。RTLのzone-row SRAM再利用テストはIcarus VerilogでPASS。
